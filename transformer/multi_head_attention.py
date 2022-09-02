@@ -22,10 +22,10 @@ class MultiHeadAttention():
         x = q_in @ k_in.T / np.sqrt(self.d_k)
         x = self.softmax.forward(x)
         x = self.dropout.forward(x, training)
-        x = x @ self.v_in
+        x = x @ v_in
         return x
 
-    def forward(self, q, k, v, mask, training=True):
+    def forward(self, q, k, v, training=True):
         q = self.W_q.forward(q)
         k = self.W_k.forward(k)
         v = self.W_v.forward(v)
