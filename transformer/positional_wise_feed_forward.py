@@ -1,0 +1,28 @@
+import numpy as np
+from modules.relu import ReLU
+from modules.linear import Linear
+from modules.dropout import Dropout
+class PositionalWiseFeedForward():
+    def __init__(self, d_model, d_ff, optimizer, dropout_rate=0.1, data_type=np.float32):
+        self.fc1 = Linear(d_model, d_ff, optimizer, use_bias=True, data_type=data_type)
+        self.fc2 = Linear(d_ff, d_model, optimizer, use_bias=True, data_type=data_type)
+        self.relu = ReLU()
+        self.dropout = Dropout(dropout_rate, data_type)
+
+    def forward(self, x, training=True):
+        x = self.fc1.forward(x)
+        x = self.relu.forward(x)
+        x = self.dropout.forward(x, training)
+        x = self.fc2.forward(x)
+        return x
+
+    def backward(self, grad):
+        grad = self.fc2.backward(grad)
+        grad = self.dropout.backward(grad)
+        grad = self.relu.backward(grad)
+        grad = self.fc1.backward(grad)
+        return grad
+
+    def update_weights(self):
+        self.fc1.update_weights()
+        self.fc2.update_weights()

@@ -39,7 +39,7 @@ class LayerNormalization():
         dlxhat = grad_y * self.gamma
         dxhatx = 1/self.b
         dlvar = -0.5*np.sum(self.gamma*self.a*self.b**(-3)*grad_y,axis=1,keepdims=True)
-        dlvarx = 2*self.a/D
+        dlvarx = 2*self.a/self.embedding_dim
         dlmu = -1.*np.sum(dlxhat/self.b,axis=1,keepdims=True)-2.*np.sum(dlvar*self.a,axis=1,keepdims=True)/self.embedding_dim
         self.grad_x = dlxhat*dxhatx + dlvar*dlvarx + dlmu/self.embedding_dim
 
