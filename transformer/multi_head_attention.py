@@ -3,7 +3,8 @@ from modules.linear import Linear
 from modules.dropout import Dropout
 from modules.softmax import Softmax
 class MultiHeadAttention():
-    def __init__(self, d_model=512, num_attention_heads=8, dropout_date=0.1, data_type=np.float32):
+    def __init__(self, optimizer, d_model=512, num_attention_heads=8, dropout_rate=0.1, data_type=np.float32):
+        self.optimizer = optimizer
         self.d_model = d_model
         self.num_attention_heads = num_attention_heads
         self.data_type = data_type
@@ -11,11 +12,11 @@ class MultiHeadAttention():
         self.d_k = self.d_q
         self.d_v = self.d_q
         self.scale_factor = np.sqrt(self.d_k)
-        self.W_q = Linear(in_features=self.d_model, out_features=self.d_q, use_bias=False, data_type=np.float32)
-        self.W_k = Linear(in_features=self.d_model, out_features=self.d_k, use_bias=False, data_type=np.float32)
-        self.W_v = Linear(in_features=self.d_model, out_features=self.d_v, use_bias=False, data_type=np.float32)
-        self.W_o = Linear(in_features=self.d_q*self.num_attention_heads*self.d_v, out_features=self.d_model, use_bias=True, data_type=np.float32)
-        self.dropout = Dropout(dropout_date)
+        self.W_q = Linear(in_features=self.d_model, out_features=self.d_q, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
+        self.W_k = Linear(in_features=self.d_model, out_features=self.d_k, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
+        self.W_v = Linear(in_features=self.d_model, out_features=self.d_v, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
+        self.W_o = Linear(in_features=self.d_q*self.num_attention_heads*self.d_v, out_features=self.d_model, optimizer=self.optimizer, use_bias=True, data_type=np.float32)
+        self.dropout = Dropout(dropout_rate)
         self.softmax = Softmax()
     
     def attention_forward(self, q, k, v, training=True):

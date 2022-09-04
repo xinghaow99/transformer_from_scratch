@@ -2,8 +2,9 @@ import numpy as np
 
 class LayerNormalization():
     # 2-dimension
-    def __init__(self, embedding_dim, eps=1e-05, data_type=np.float32):
+    def __init__(self, optimizer, embedding_dim, eps=1e-05, data_type=np.float32):
         self.layer_name = "layernorm"
+        self.optimizer = optimizer
         self.embedding_dim = embedding_dim
         self.eps = eps
         self.data_type = data_type
