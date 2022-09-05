@@ -3,10 +3,11 @@ from modules.linear import Linear
 from modules.dropout import Dropout
 from modules.softmax import Softmax
 class MultiHeadAttention():
-    def __init__(self, optimizer, d_model=512, num_attention_heads=8, dropout_rate=0.1, data_type=np.float32):
+    def __init__(self, optimizer, d_model=512, num_attention_heads=8, dropout_rate=0.1, mask=None, data_type=np.float32):
         self.optimizer = optimizer
         self.d_model = d_model
         self.num_attention_heads = num_attention_heads
+        self.mask = mask
         self.data_type = data_type
         self.d_q = d_model // self.num_attention_heads
         self.d_k = self.d_q
@@ -21,6 +22,9 @@ class MultiHeadAttention():
     
     def attention_forward(self, q, k, v, training=True):
         attention_score = q @ k.transpose(0, 1, 3, 2) / np.sqrt(self.d_k)
+        if self.mask is not None:
+            self.mask = np.asarray(self.mask)
+            self.mask = self.mask[:, np.newaxis, ...]
         softmax_output = self.softmax.forward(attention_score)
         self.dropoutout_output = self.dropout.forward(softmax_output, training)
         attention_output = self.dropoutout_output @ v
