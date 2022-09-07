@@ -47,19 +47,3 @@ class Adam():
         self.set_lr()
         param = param - self.lr * mean_hat / (np.sqrt(var_hat) + self.eps)
         return param
-
-class A():
-    def __init__(self):
-        self.id = 1
-
-class B():
-    def __init__(self, a):
-        self.a = a
-    def change(self):
-        self.a.id = 2
-a = A()
-print(a.id)
-b = B(a)
-print(b.a.id)
-b.change()
-print(a.id)

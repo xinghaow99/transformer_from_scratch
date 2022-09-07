@@ -2,10 +2,10 @@ import numpy as np
 
 class LayerNormalization():
     # 2-dimension
-    def __init__(self, optimizer, embedding_dim, eps=1e-05, data_type=np.float32):
+    def __init__(self, optimizer, normalized_shape, eps=1e-05, data_type=np.float32):
         self.layer_name = "layernorm"
         self.optimizer = optimizer
-        self.embedding_dim = embedding_dim
+        self.normalized_shape = normalized_shape
         self.eps = eps
         self.data_type = data_type
         self.gamma = None
@@ -13,8 +13,8 @@ class LayerNormalization():
         self.init_weights()
 
     def init_weights(self):
-        self.gamma = np.ones(self.embedding_dim).astype(self.data_type)
-        self.beta = np.zeros(self.embedding_dim).astype(self.data_type)
+        self.gamma = np.ones(self.normalized_shape).astype(self.data_type)
+        self.beta = np.zeros(self.normalized_shape).astype(self.data_type)
 
     def register(self):
         self.layer_id = self.optimizer.count_layers(self.layer_name) // 2
@@ -25,24 +25,32 @@ class LayerNormalization():
 
     def forward(self, x):
         self.x = x
-        batch_size = x.shape[0]
-        x_mean = np.mean(x, axis=1).reshape(batch_size, 1)
-        x_var = np.var(x, axis=1).reshape(batch_size, 1)
-        a = x - x_mean
-        b = np.sqrt(x_var+self.eps)
-        self.a = a
-        self.b = b
-        return a / b
+        x_T = x.T
+        self.normalized_axis = tuple(np.arange(self.x.ndim - self.gamma.ndim).tolist())
+        self.feature_size = self.gamma.size
+        self.mean = np.mean(x_T, axis = 0)
+        self.var = np.var(x_T,axis = 0)
+        self.X_centered = (x_T - self.mean)
+        self.stddev_inv = 1 / np.sqrt(self.var + self.eps)
 
-    def backward(self, grad_y):
-        self.grad_gamma = np.sum(grad_y * self.a / self.b, axis=0, keepdims=True)
-        self.grad_beta = np.sum(grad_y, axis=0, keepdims=True)
-        dlxhat = grad_y * self.gamma
-        dxhatx = 1/self.b
-        dlvar = -0.5*np.sum(self.gamma*self.a*self.b**(-3)*grad_y,axis=1,keepdims=True)
-        dlvarx = 2*self.a/self.embedding_dim
-        dlmu = -1.*np.sum(dlxhat/self.b,axis=1,keepdims=True)-2.*np.sum(dlvar*self.a,axis=1,keepdims=True)/self.embedding_dim
-        self.grad_x = dlxhat*dxhatx + dlvar*dlvarx + dlmu/self.embedding_dim
+        self.X_hat_T = self.X_centered * self.stddev_inv
+        self.X_hat = self.X_hat_T.T
+        
+        self.output_data = self.gamma * self.X_hat + self.beta
+
+        return self.output_data
+
+    def backward(self, grad):
+        self.grad_gamma = np.sum(grad * self.X_hat, axis = self.normalized_axis)
+        self.grad_beta = np.sum(grad, axis = self.normalized_axis)
+        grad_T = grad.T
+        grad = (1 / self.feature_size) * np.expand_dims(self.gamma, axis = self.normalized_axis).T * self.stddev_inv * (
+            self.feature_size * grad_T
+            - np.sum(grad_T, axis = 0)
+            - self.X_centered * np.power(self.stddev_inv, 2) * np.sum(error_T * self.X_centered, axis = 0)
+            )
+        grad = grad.T
+        return grad
 
     def update_weights(self):
         self.optimizer.update(self.gamma, self.grad_gamma, "{}.gamma".format(self.register_name))

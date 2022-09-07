@@ -16,6 +16,3 @@ class PositionalEncoding():
 
     def backward(self, grad):
         return grad
-
-pe = PositionalEncoding(3, 8)
-print(pe.pe)

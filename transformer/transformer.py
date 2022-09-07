@@ -1,6 +1,6 @@
 import numpy as np
-from encoder import Encoder
-from decoder import Decoder
+from .encoder import Encoder
+from .decoder import Decoder
 
 class Transformer():
     def __init__(self, optimizer, source_vocab_size, target_vocab_size, max_len, d_model, d_ff, num_attention_heads, block_num, dropout_rate, data_type):

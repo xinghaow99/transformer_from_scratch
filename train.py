@@ -1,7 +1,9 @@
+import enum
 import numpy as np
 from dataloader import Dataloader
 from optimizer import Adam
 from transformer.transformer import Transformer
+from tqdm import tqdm
 # Hyperparameters
 DATASET_NAME = 'news_commentary'
 LANG_PAIR = 'en-zh'
@@ -21,17 +23,28 @@ EPS = 1e-9
 WARMUP_STEPS = 4000
 # 1 pass
 def get_padding_mask(ids, padding_id):
-    mask = (ids != padding_id).astype(int)
+    mask = (ids != padding_id).astype(int)[:, np.newaxis, :]
     return mask
 
 def get_subsequent_mask(ids):
     seq_len = ids.shape[1]
-    mask = np.tril(np.ones((seq_len, seq_len)), k=0)
+    mask = np.tril(np.ones((seq_len, seq_len)), k=0).astype(int)
     return mask
+
+def train_epoch(source_ids, target_ids, model, padding_id):
+    progress = tqdm(enumerate(zip(source_ids, target_ids)))
+    for batch_id, (source, target) in progress:
+        source_mask = get_padding_mask(source, padding_id)
+        target_mask = get_padding_mask(target, padding_id) & get_subsequent_mask(target)
+        output = model.forward(source, target, source_mask, target_mask)
+        print(output)
 
 
 if __name__=='__main__':
     dataloader = Dataloader(DATASET_NAME, LANG_PAIR, BATCH_SIZE)
+    padding_id = dataloader.base_vocab[dataloader.PAD_TOKEN]
+    train_source_ids, train_target_ids = dataloader.train_source_ids, dataloader.train_target_ids
+    tedt_source_ids, test_target_ids = dataloader.test_source_ids, dataloader.test_target_ids
     optimizer = Adam(lr=LR, beta1=BETA1, beta2=BETA2, eps=EPS, warmup_steps=WARMUP_STEPS)
     transformer = Transformer(
         optimizer=optimizer,
@@ -45,4 +58,5 @@ if __name__=='__main__':
         dropout_rate=DROPOUT_RATE,
         data_type=DATA_TYPE
     )
-    
+    train_epoch(train_source_ids, train_target_ids, transformer, padding_id)
+

@@ -19,7 +19,7 @@ class Embedding():
 
     def forward(self, indicies):
         self.indicies = indicies
-        self.output = np.take(self.weights, input, axis=0)
+        self.output = np.take(self.weights, self.indicies, axis=0)
         return self.output
     
     def backward(self, grad_y):
@@ -28,8 +28,3 @@ class Embedding():
 
     def update_weights(self):
         self.optimizer.update(self.weights, self.grad_weights, "{}.weights".format(self.register_name))
-
-
-embedding = Embedding(10, 3)
-input = np.array([[1,2,3,4], [5,6,7,8]])
-print(embedding.forward(input))

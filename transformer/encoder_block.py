@@ -12,9 +12,9 @@ class EncoderBlock():
         self.dropout_rate = dropout_rate
         self.data_type = data_type
         self.dropout = Dropout(self.dropout_rate, self.data_type)
-        self.layernorm1 = LayerNormalization(self.optimizer, embedding_dim=self.d_model, eps=1e-5, data_type=self.data_type)
-        self.layernorm2 = LayerNormalization(self.optimizer, embedding_dim=self.d_model, eps=1e-5, data_type=self.data_type)
-        self.multi_head_attention = MultiHeadAttention(self.ptimizer, self.d_model, self.num_attention_heads, self.dropout_rate, self.data_type)
+        self.layernorm1 = LayerNormalization(self.optimizer, normalized_shape=self.d_model, eps=1e-5, data_type=self.data_type)
+        self.layernorm2 = LayerNormalization(self.optimizer, normalized_shape=self.d_model, eps=1e-5, data_type=self.data_type)
+        self.multi_head_attention = MultiHeadAttention(self.optimizer, self.d_model, self.num_attention_heads, self.dropout_rate, self.data_type)
         self.ffn = PositionWiseFeedForward(self.optimizer, self.d_model, self.d_ff, self.dropout_rate, self.data_type)
 
     def forward(self, x, mask, training=True):
@@ -24,7 +24,7 @@ class EncoderBlock():
         x = self.layernorm1.forward(x + attention_output)
         ffn_output = self.ffn.forward(x, training)
         ffn_output  = self.dropout.forward(ffn_output, training)
-        output = self.layernorm2(x + ffn_output)
+        output = self.layernorm2.forward(x + ffn_output)
         return output
 
     def backward(self, grad):

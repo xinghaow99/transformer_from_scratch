@@ -1,3 +1,4 @@
 /NIPS-2017-attention-is-all-you-need-Paper.pdf
 .DS_Store
 data
+__pycache__

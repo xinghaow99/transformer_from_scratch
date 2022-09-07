@@ -22,8 +22,8 @@ class Dataloader():
         self.source_vocab = self.base_vocab.copy()
         self.target_vocab = self.base_vocab.copy()
         self.build_vocab()
-        self.batch_examples_and_add_special_tokens(self.train_dataset)
-        self.batch_examples_and_add_special_tokens(self.test_dataset)
+        self.train_dataset = self.batch_examples_and_add_special_tokens(self.train_dataset)
+        self.test_dataset = self.batch_examples_and_add_special_tokens(self.test_dataset)
         self.train_source_ids, self.train_target_ids = self.convert_to_ids(self.train_dataset)
         self.test_source_ids, self.test_target_ids = self.convert_to_ids(self.test_dataset)
 
@@ -60,9 +60,10 @@ class Dataloader():
             for example in batch:
                 batch_source_max_len = max(batch_source_max_len, len(example[self.source_lang]))
                 batch_target_max_len = max(batch_target_max_len, len(example[self.target_lang]))
+            max_len = max(batch_source_max_len, batch_target_max_len)
             for example in batch:
-                example[self.source_lang] += [self.PAD_TOKEN] * (batch_source_max_len - len(example[self.source_lang]))
-                example[self.target_lang] += [self.PAD_TOKEN] * (batch_target_max_len - len(example[self.target_lang]))
+                example[self.source_lang] += [self.PAD_TOKEN] * (max_len - len(example[self.source_lang]))
+                example[self.target_lang] += [self.PAD_TOKEN] * (max_len - len(example[self.target_lang]))
         return batched_data
 
     def convert_to_ids(self, dataset):

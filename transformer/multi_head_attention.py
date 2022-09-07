@@ -12,10 +12,10 @@ class MultiHeadAttention():
         self.d_k = self.d_q
         self.d_v = self.d_q
         self.scale_factor = np.sqrt(self.d_k)
-        self.W_q = Linear(in_features=self.d_model, out_features=self.d_q, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
-        self.W_k = Linear(in_features=self.d_model, out_features=self.d_k, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
-        self.W_v = Linear(in_features=self.d_model, out_features=self.d_v, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
-        self.W_o = Linear(in_features=self.d_q*self.num_attention_heads*self.d_v, out_features=self.d_model, optimizer=self.optimizer, use_bias=True, data_type=np.float32)
+        self.W_q = Linear(in_features=self.d_model, out_features=self.d_q*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
+        self.W_k = Linear(in_features=self.d_model, out_features=self.d_k*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
+        self.W_v = Linear(in_features=self.d_model, out_features=self.d_v*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
+        self.W_o = Linear(in_features=self.d_model, out_features=self.d_model, optimizer=self.optimizer, use_bias=True, data_type=np.float32)
         self.dropout = Dropout(dropout_rate)
         self.softmax = Softmax()
     
@@ -26,8 +26,8 @@ class MultiHeadAttention():
             mask = mask[:, np.newaxis, ...]
         attention_score = np.where(mask == 0, float('-inf'), attention_score)
         softmax_output = self.softmax.forward(attention_score)
-        self.dropoutout_output = self.dropout.forward(softmax_output, training)
-        attention_output = self.dropoutout_output @ v
+        self.dropout_output = self.dropout.forward(softmax_output, training)
+        attention_output = self.dropout_output @ v
         return attention_output
 
     def attention_backward(self, mask, grad):
@@ -54,7 +54,7 @@ class MultiHeadAttention():
         self.v = v.reshape(self.batch_size, -1, self.num_attention_heads, self.d_v).transpose(0, 2, 1, 3)
         attention_output = self.attention_forward(self.q, self.k, self.v, self.mask, training)
         # concatenating
-        attention_output = attention_output.tranpose(0, 2, 1, 3).reshape(self.batch_size, -1, self.num_attention_heads*self.d_k)
+        attention_output = attention_output.transpose(0, 2, 1, 3).reshape(self.batch_size, -1, self.num_attention_heads*self.d_k)
         output = self.W_o.forward(attention_output)
         return output
 
