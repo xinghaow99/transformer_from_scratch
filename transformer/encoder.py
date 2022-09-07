@@ -11,12 +11,12 @@ class Encoder():
         self.positional_encoding = PositionalEncoding(max_len, d_model, data_type)
         self.encoder_layers = [EncoderBlock(d_model, d_ff, optimizer, num_attention_heads, dropout_rate, data_type) for _ in range(block_num)]
 
-    def forward(self, x, training):
+    def forward(self, x, mask, training):
         x = self.embedding.forward(x) * np.sqrt(self.d_model)
         x = self.positional_encoding.forward(x)
         x = self.dropout.forward(x, training)
         for encoder_layer in self.encoder_layers:
-            x = encoder_layer.forward(x, training)
+            x = encoder_layer.forward(x, mask, training)
         return x
 
     def backward(self, grad):

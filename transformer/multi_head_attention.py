@@ -3,11 +3,10 @@ from modules.linear import Linear
 from modules.dropout import Dropout
 from modules.softmax import Softmax
 class MultiHeadAttention():
-    def __init__(self, optimizer, d_model=512, num_attention_heads=8, dropout_rate=0.1, mask=None, data_type=np.float32):
+    def __init__(self, optimizer, d_model=512, num_attention_heads=8, dropout_rate=0.1, data_type=np.float32):
         self.optimizer = optimizer
         self.d_model = d_model
         self.num_attention_heads = num_attention_heads
-        self.mask = mask
         self.data_type = data_type
         self.d_q = d_model // self.num_attention_heads
         self.d_k = self.d_q
@@ -20,26 +19,30 @@ class MultiHeadAttention():
         self.dropout = Dropout(dropout_rate)
         self.softmax = Softmax()
     
-    def attention_forward(self, q, k, v, training=True):
+    def attention_forward(self, q, k, v, mask, training=True):
         attention_score = q @ k.transpose(0, 1, 3, 2) / np.sqrt(self.d_k)
-        if self.mask is not None:
-            self.mask = np.asarray(self.mask)
-            self.mask = self.mask[:, np.newaxis, ...]
+        if mask is not None:
+            mask = np.asarray(mask)
+            mask = mask[:, np.newaxis, ...]
+        attention_score = np.where(mask == 0, float('-inf'), attention_score)
         softmax_output = self.softmax.forward(attention_score)
         self.dropoutout_output = self.dropout.forward(softmax_output, training)
         attention_output = self.dropoutout_output @ v
         return attention_output
 
-    def attention_backward(self, grad):
+    def attention_backward(self, mask, grad):
         self.grad_v = self.dropoutout_output.transpose(0, 1, 3, 2) @ grad
         grad = grad @ self.v.tranpose(0, 1, 3, 2)
         grad = self.dropout.backward(grad)
         grad = self.softmax.backward(grad)
+        if mask is not None:
+            grad = np.where(mask == 0, 0, grad)
         self.grad_q = grad @ self.k / np.sqrt(self.d_k)
         self.grad_k = (self.q.transpose(0, 1, 3, 2) @ grad / np.sqrt(self.d_k)).transpose(0, 1, 3, 2)
         return grad
 
-    def forward(self, q, k, v, training=True):
+    def forward(self, q, k, v, mask=None, training=True):
+        self.mask = mask
         self.batch_size = q.shape[0]
         # [batch_size, seq_len, d_k*num_attention_heads]
         q = self.W_q.forward(q)
@@ -49,7 +52,7 @@ class MultiHeadAttention():
         self.q = q.reshape(self.batch_size, -1, self.num_attention_heads, self.d_q).transpose(0, 2, 1, 3)
         self.k = k.reshape(self.batch_size, -1, self.num_attention_heads, self.d_k).transpose(0, 2, 1, 3)
         self.v = v.reshape(self.batch_size, -1, self.num_attention_heads, self.d_v).transpose(0, 2, 1, 3)
-        attention_output = self.attention_forward(self.q, self.k, self.v, training)
+        attention_output = self.attention_forward(self.q, self.k, self.v, self.mask, training)
         # concatenating
         attention_output = attention_output.tranpose(0, 2, 1, 3).reshape(self.batch_size, -1, self.num_attention_heads*self.d_k)
         output = self.W_o.forward(attention_output)
@@ -58,7 +61,7 @@ class MultiHeadAttention():
     def backward(self, grad):
         grad = self.W_o.backward(grad)
         grad = grad.reshape(self.batch_size, -1, self.num_attention_heads, self.d_k).transpose(0, 2, 1, 3)
-        grad = self.attention_backward(grad)
+        grad = self.attention_backward(self.mask, grad)
         self.grad_q = self.grad_q.transpose(0, 2, 1, 3).reshape(self.batch_size, -1, self.num_attention_heads*self.d_q)
         self.grad_k = self.grad_k.transpose(0, 2, 1, 3).reshape(self.batch_size, -1, self.num_attention_heads*self.d_k)
         self.grad_v = self.grad_v.transpose(0, 2, 1, 3).reshape(self.batch_size, -1, self.num_attention_heads*self.d_v)

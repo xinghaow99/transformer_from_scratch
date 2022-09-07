@@ -14,12 +14,12 @@ class EncoderBlock():
         self.dropout = Dropout(self.dropout_rate, self.data_type)
         self.layernorm1 = LayerNormalization(self.optimizer, embedding_dim=self.d_model, eps=1e-5, data_type=self.data_type)
         self.layernorm2 = LayerNormalization(self.optimizer, embedding_dim=self.d_model, eps=1e-5, data_type=self.data_type)
-        self.multi_head_attention = MultiHeadAttention(self.ptimizer, self.d_model, self.num_attention_heads, self.dropout_rate, None, self.data_type)
+        self.multi_head_attention = MultiHeadAttention(self.ptimizer, self.d_model, self.num_attention_heads, self.dropout_rate, self.data_type)
         self.ffn = PositionWiseFeedForward(self.optimizer, self.d_model, self.d_ff, self.dropout_rate, self.data_type)
 
-    def forward(self, x, training=True):
+    def forward(self, x, mask, training=True):
         q, k, v = x, x, x
-        attention_output = self.multi_head_attention.forward(q, k, v, training)
+        attention_output = self.multi_head_attention.forward(q, k, v, mask, training)
         attention_output = self.dropout.forward(attention_output, training)
         x = self.layernorm1.forward(x + attention_output)
         ffn_output = self.ffn.forward(x, training)

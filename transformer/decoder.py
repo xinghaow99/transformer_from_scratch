@@ -7,21 +7,21 @@ from modules.softmax import Softmax
 from transformer.positional_encoding import PositionalEncoding
 from transformer.decoder_block import DecoderBlock
 class Decoder():
-    def __init__(self, optimizer, vocab_size, max_len, d_model, d_ff, num_attention_heads, block_num, dropout_rate, mask1, mask2, data_type):
+    def __init__(self, optimizer, vocab_size, max_len, d_model, d_ff, num_attention_heads, block_num, dropout_rate, data_type):
         self.d_model = d_model
         self.embedding = Embedding(vocab_size, d_model, optimizer, data_type)
         self.dropout = Dropout(dropout_rate, data_type)
         self.positional_enconding = PositionalEncoding(max_len, d_model, data_type)
-        self.decoder_layers = [DecoderBlock(optimizer, d_model, d_ff, num_attention_heads, dropout_rate, mask1, mask2, data_type) for _ in range(block_num)]
+        self.decoder_layers = [DecoderBlock(optimizer, d_model, d_ff, num_attention_heads, dropout_rate, data_type) for _ in range(block_num)]
         self.fc = Linear(d_model, vocab_size, optimizer, True, data_type)
         self.softmax = Softmax()
 
-    def forward(self, target, source, training):
+    def forward(self, target, source, target_mask, source_mask, training):
         target = self.embedding.forward(target) * np.sqrt(self.d_model)
         target = self.positional_enconding.forward(target)
         target = self.dropout.forward(target, training)
         for decoder_layer in self.decoder_layers:
-            target =  decoder_layer.forward(target, source, training)
+            target =  decoder_layer.forward(target, source, target_mask, source_mask, training)
         target = self.fc.forward(target)
         target = self.softmax.forward(target)
         return target
