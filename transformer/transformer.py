@@ -12,6 +12,10 @@ class Transformer():
         encoder_output = self.encoder.forward(source_ids, source_mask, training)
         decoder_output = self.decoder.forward(target_ids, encoder_output, target_mask, source_mask, training)
         return decoder_output
+    def backward(self, grad):
+        grad = self.decoder.backward(grad)
+        grad = self.encoder.backward(self.decoder.grad_source_sum)
+        return grad
 
     def update_weights(self):
         self.decoder.update_weights()

@@ -29,14 +29,14 @@ class Decoder():
     def backward(self, grad):
         grad = self.softmax.backward(grad)
         grad = self.fc.backward(grad)
-        grad_source_sum = 0
+        self.grad_source_sum = 0
         for decoder_layer in reversed(self.decoder_layers):
             grad, grad_source = decoder_layer.backward(grad)
-            grad_source_sum += grad_source
+            self.grad_source_sum += grad_source
         grad = self.dropout.backward(grad)
         grad = self.positional_enconding.backward(grad) * np.sqrt(self.d_model)
         grad = self.embedding.backward(grad)
-        return grad, grad_source_sum
+        return grad
 
     def update_weights(self):
         self.fc.update_weights()

@@ -24,7 +24,7 @@ class DecoderBlock():
         attention_output1 = self.multi_head_att1.forward(q, k, v, target_mask, training)
         attention_output1 = self.dropout.forward(attention_output1, training)
         target_ = self.layernorm1.forward(target + attention_output1)
-        q, k, v = source, source, target_
+        q, k, v = target_, source, source
         attention_output2 = self.multi_head_att2.forward(q, k, v, source_mask, training)
         attention_output2 = self.dropout.forward(attention_output2, training)
         x = self.layernorm2.forward(target_ + attention_output2)
