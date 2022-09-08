@@ -8,14 +8,16 @@ class Embedding():
         self.data_type = data_type
         self.weights = None
         self.init_weights()
+        self.register()
 
     def init_weights(self):
         self.weights = np.random.normal(0, 1, (self.num_embeddings, self.embedding_dim)).astype(self.data_type)
 
     def register(self):
-        self.layer_id = self.optimizer.count_layers(self.layer_name)
-        self.register_name = "{}_{}".format(self.layer_name, self.layer_id)
-        self.optimizer.registered_layer_params["{}.weights".format(self.register_name)] = {}
+        weights_registered_name = '{}_{}'.format(self.layer_name, 'weights')
+        cnt= self.optimizer.count_layers(weights_registered_name)
+        self.weights_registered_name = "{}_{}".format(weights_registered_name, cnt)
+        self.optimizer.register_params(self.weights_registered_name, self.weights)
 
     def forward(self, indicies):
         self.indicies = indicies
@@ -27,4 +29,4 @@ class Embedding():
         return None
 
     def update_weights(self):
-        self.optimizer.update(self.weights, self.grad_weights, "{}.weights".format(self.register_name))
+        self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)

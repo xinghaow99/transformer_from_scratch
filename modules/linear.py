@@ -12,6 +12,8 @@ class Linear():
         self.bias= None
         self.data_type = data_type
         self.init_weights()
+        self.register()
+
 
     def init_weights(self):
         sqrt_k = 1. / np.sqrt(self.in_features)
@@ -19,26 +21,29 @@ class Linear():
         self.bias = np.zeros(self.out_features).astype(self.data_type) if self.use_bias else np.random.uniform(-sqrt_k, sqrt_k, self.out_features)
     
     def register(self):
-        cnt= self.optimizer.count_layers(self.layer_name)
-        self.layer_id = cnt // 2 if self.use_bias else cnt
-        self.register_name = "{}_{}".format(self.layer_name, self.layer_id)
-        self.optimizer.registered_layer_params["{}.weights".format(self.register_name)] = {}
+        weights_registered_name = '{}_{}'.format(self.layer_name, 'weights')
+        cnt= self.optimizer.count_layers(weights_registered_name)
+        self.weights_registered_name = "{}_{}".format(weights_registered_name, cnt)
+        self.optimizer.register_params(self.weights_registered_name, self.weights)
         if self.use_bias:
-            self.optimizer.registerd_layer_params["{}.bias".format(self.register_name)] = {}
+            bias_registered_name = '{}_{}'.format(self.layer_name, 'bias')
+            cnt= self.optimizer.count_layers(bias_registered_name)
+            self.bias_registered_name = "{}_{}".format(bias_registered_name, cnt)
+            self.optimizer.register_params(self.bias_registered_name, self.bias)
 
     def forward(self, x):
         self.x = x
         self.output = x @ self.weights + self.bias
         return self.output
     
-    def backward(self, grad_y):
+    def backward(self, grad):
         # https://web.eecs.umich.edu/~justincj/teaching/eecs442/notes/linear-backprop.html
-        self.grad_weights = np.sum(self.x.T @ grad_y)
-        self.grad_bias = np.sum(grad_y)
-        self.grad_x = grad_y @ self.weights.T
-        return self.grad_x
+        self.grad_weights = np.sum(self.x.transpose(0, 2, 1) @ grad, axis=0)
+        self.grad_bias = np.sum(grad, axis=(0, 1))
+        self.grad = np.dot(grad, self.weights.T)
+        return self.grad
     
     def update_weights(self):
-        self.optimizer.update(self.weights, self.grad_weights, "{}.weights".format(self.register_name))
+        self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)
         if self.use_bias:
-            self.optimizer.update(self.bias, self.grad_bias, "{}.bias".format(self.register_name))
+            self.optimizer.update(self.bias, self.grad_bias, self.bias_registered_name)

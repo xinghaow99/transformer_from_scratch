@@ -11,6 +11,7 @@ class LayerNormalization():
         self.gamma = None
         self.beta = None
         self.init_weights()
+        self.register()
 
     def init_weights(self):
         self.gamma = np.ones(self.normalized_shape).astype(self.data_type)
@@ -19,9 +20,8 @@ class LayerNormalization():
     def register(self):
         self.layer_id = self.optimizer.count_layers(self.layer_name) // 2
         self.register_name = "{}_{}".format(self.layer_name, self.layer_id)
-        self.optimizer.registered_layer_params["{}.gamma".format(self.register_name)] = {}
-        self.optimizer.registered_layer_params["{}.beta".format(self.register_name)] = {}
-
+        self.optimizer.register_params("{}.gamma".format(self.register_name), self.gamma)
+        self.optimizer.register_params("{}.beta".format(self.register_name), self.beta)
 
     def forward(self, x):
         self.x = x
@@ -47,7 +47,7 @@ class LayerNormalization():
         grad = (1 / self.feature_size) * np.expand_dims(self.gamma, axis = self.normalized_axis).T * self.stddev_inv * (
             self.feature_size * grad_T
             - np.sum(grad_T, axis = 0)
-            - self.X_centered * np.power(self.stddev_inv, 2) * np.sum(error_T * self.X_centered, axis = 0)
+            - self.X_centered * np.power(self.stddev_inv, 2) * np.sum(grad_T * self.X_centered, axis = 0)
             )
         grad = grad.T
         return grad
