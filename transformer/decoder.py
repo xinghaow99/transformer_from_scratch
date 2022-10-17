@@ -1,5 +1,5 @@
 import imp
-import numpy as np
+import cupy as cp
 from modules.embedding import Embedding
 from modules.dropout import Dropout
 from modules.linear import Linear
@@ -16,12 +16,12 @@ class Decoder():
         self.fc = Linear(d_model, vocab_size, optimizer, True, data_type)
         self.softmax = Softmax()
 
-    def forward(self, target, source, target_mask, source_mask, training):
-        target = self.embedding.forward(target) * np.sqrt(self.d_model)
+    def forward(self, target, source, target_mask, src_tgt_mask, training):
+        target = self.embedding.forward(target) * cp.sqrt(self.d_model)
         target = self.positional_enconding.forward(target)
         target = self.dropout.forward(target, training)
         for decoder_layer in self.decoder_layers:
-            target =  decoder_layer.forward(target, source, target_mask, source_mask, training)
+            target =  decoder_layer.forward(target, source, target_mask, src_tgt_mask, training)
         target = self.fc.forward(target)
         target = self.softmax.forward(target)
         return target
@@ -34,7 +34,7 @@ class Decoder():
             grad, grad_source = decoder_layer.backward(grad)
             self.grad_source_sum += grad_source
         grad = self.dropout.backward(grad)
-        grad = self.positional_enconding.backward(grad) * np.sqrt(self.d_model)
+        grad = self.positional_enconding.backward(grad) * cp.sqrt(self.d_model)
         grad = self.embedding.backward(grad)
         return grad
 

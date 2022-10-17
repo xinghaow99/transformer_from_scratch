@@ -1,17 +1,17 @@
-import numpy as np
+import cupy as cp
 
 class Softmax():
     def __init__(self):
         self.axis = -1
 
     def forward(self, x):
-        self.x = x
-        e_x = np.exp(x - np.max(x, axis = self.axis, keepdims=True))
-        self.y =  e_x / np.sum(e_x, axis = self.axis, keepdims=True)
-        return self.y
+        e_x = cp.exp(x - cp.max(x, axis = self.axis, keepdims=True))
+        self.y =  e_x / cp.sum(e_x, axis = self.axis, keepdims=True)
+        return cp.nan_to_num(self.y, nan=0.)
 
     def backward(self, grad_y):
-        # https://sgugger.github.io/a-simple-neural-net-in-numpy.html
+        # https://sgugger.github.io/a-simple-neural-net-in-cupy.html
         grad_x = self.y * (grad_y - (grad_y * self.y).sum(axis=self.axis, keepdims=True))
-        return grad_x
+        del self.y
+        return cp.nan_to_num(grad_x, nan=0.)
 

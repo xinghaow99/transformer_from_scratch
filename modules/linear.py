@@ -1,8 +1,7 @@
-from re import L
-import numpy as np
-
+import cupy as cp
+from utils import _release_memory
 class Linear():
-    def __init__(self, in_features, out_features, optimizer, use_bias=True, data_type=np.float32):
+    def __init__(self, in_features, out_features, optimizer, use_bias=True, data_type=cp.float32):
         self.layer_name = "linear"
         self.in_features = in_features
         self.out_features = out_features
@@ -16,9 +15,9 @@ class Linear():
 
 
     def init_weights(self):
-        sqrt_k = 1. / np.sqrt(self.in_features)
-        self.weights = np.random.uniform(-sqrt_k, sqrt_k, (self.in_features, self.out_features)).astype(self.data_type)
-        self.bias = np.zeros(self.out_features).astype(self.data_type) if self.use_bias else np.random.uniform(-sqrt_k, sqrt_k, self.out_features)
+        sqrt_k = 1. / cp.sqrt(self.in_features)
+        self.weights = cp.random.uniform(-sqrt_k, sqrt_k, (self.in_features, self.out_features)).astype(self.data_type)
+        self.bias = cp.zeros(self.out_features).astype(self.data_type) if self.use_bias else cp.random.uniform(-sqrt_k, sqrt_k, self.out_features)
     
     def register(self):
         weights_registered_name = '{}_{}'.format(self.layer_name, 'weights')
@@ -33,17 +32,25 @@ class Linear():
 
     def forward(self, x):
         self.x = x
-        self.output = x @ self.weights + self.bias
+        self.output = x @ self.weights
+        if self.use_bias:
+            self.output += self.bias
         return self.output
     
     def backward(self, grad):
         # https://web.eecs.umich.edu/~justincj/teaching/eecs442/notes/linear-backprop.html
-        self.grad_weights = np.sum(self.x.transpose(0, 2, 1) @ grad, axis=0)
-        self.grad_bias = np.sum(grad, axis=(0, 1))
-        self.grad = np.dot(grad, self.weights.T)
+        # self.grad_weights = self.x.reshape(self.in_features, -1) @ grad.reshape(-1, self.out_features)
+        self.grad_weights = cp.sum(cp.matmul(self.x.transpose(0, 2, 1), grad), axis=0)
+        if self.use_bias:
+            self.grad_bias = cp.sum(grad, axis=tuple(range(grad.ndim - 1)))
+        self.grad = grad @ self.weights.T
         return self.grad
     
+    def release_memory(self):
+        del self.x, self.output, self.grad_weights
+
     def update_weights(self):
-        self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)
+        self.weights = self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)
         if self.use_bias:
-            self.optimizer.update(self.bias, self.grad_bias, self.bias_registered_name)
+            self.bias = self.optimizer.update(self.bias, self.grad_bias, self.bias_registered_name)
+        self.release_memory()

@@ -1,18 +1,19 @@
-import numpy as np
-
+import cupy as cp
+from utils import _release_memory
 class PositionalEncoding():
-    def __init__(self, max_len, d_model, data_type=np.float32):
-        self.pe = np.zeros((max_len, d_model), dtype=data_type)
-        ev_cln = np.arange(0, d_model, 2)
+    def __init__(self, max_len, d_model, data_type=cp.float32):
+        self.pe = cp.zeros((max_len, d_model), dtype=data_type)
+        ev_cln = cp.arange(0, d_model, 2)
         diff = 1.0 / (10000) ** (ev_cln / d_model)
-        pos = np.arange(0, max_len)[:, np.newaxis]
-        self.pe[:, 0::2] = np.sin(pos * diff)
-        self.pe[:, 1::2] = np.cos(pos * diff)
-        self.pe = self.pe[:, np.newaxis, :]
+        pos = cp.arange(0, max_len)[:, cp.newaxis]
+        self.pe[:, 0::2] = cp.sin(pos * diff)
+        self.pe[:, 1::2] = cp.cos(pos * diff)
+        self.pe = self.pe[cp.newaxis, :, :]
+        del ev_cln, diff, pos
+        # release_memory()
 
     def forward(self, x):
-        batch_size = x.shape[0]
-        return x + self.pe[:batch_size, :, :]
+        return x + self.pe[:, :x.shape[1], :]
 
     def backward(self, grad):
         return grad

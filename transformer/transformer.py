@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as cp
 from .encoder import Encoder
 from .decoder import Decoder
 
@@ -8,9 +8,9 @@ class Transformer():
         self.decoder = Decoder(optimizer, target_vocab_size, max_len, d_model, d_ff, num_attention_heads, block_num, dropout_rate, data_type)
         self.data_type = data_type
 
-    def forward(self, source_ids, target_ids, source_mask, target_mask, training=True):
+    def forward(self, source_ids, target_ids, source_mask, target_mask, src_tgt_mask,training=True):
         encoder_output = self.encoder.forward(source_ids, source_mask, training)
-        decoder_output = self.decoder.forward(target_ids, encoder_output, target_mask, source_mask, training)
+        decoder_output = self.decoder.forward(target_ids, encoder_output, target_mask, src_tgt_mask, training)
         return decoder_output
     def backward(self, grad):
         grad = self.decoder.backward(grad)

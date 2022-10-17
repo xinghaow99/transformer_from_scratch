@@ -1,23 +1,39 @@
-import numpy as np
+import cupy as cp
 
 class CrossEntropy():
-    def __init__(self, vocab_size):
+    def __init__(self, padding_id, vocab_size):
         self.eps = 1e-6
+        self.padding_id = padding_id
         self.vocab_size = vocab_size
 
     def one_hot(self, label):
-        batch_size, seq_len = label.shape
-        batch_one_hot = []
-        for batch in range(batch_size):
-            one_hot = np.zeros((seq_len, self.vocab_size))
-            one_hot[np.arange(seq_len), label[batch]] = 1
-            batch_one_hot.append(one_hot)
-        self.one_hot_label = np.asarray(batch_one_hot)
-        return self.one_hot_label
+        label_num = len(label)
+        one_hot = cp.zeros((label_num, self.vocab_size))
+        one_hot[cp.arange(label_num), label] = 1
+        self.one_hot_label = one_hot
+        return one_hot
 
     def forward(self, pred, label):
-        label = self.one_hot(label)
-        return -np.sum(label * np.log(pred + self.eps))
+        one_hot_label = self.one_hot(label)
+        loss = -(one_hot_label * cp.log(pred + self.eps)).sum(-1)
+        loss = cp.where(label==self.padding_id, 0, loss)
+        return loss
 
     def grad(self, pred, label):
-        return pred - self.one_hot_label
+        # [batch_size*seq_len, vocab_size)]
+        grad = pred - self.one_hot_label
+        grad = cp.where(label.reshape(-1, 1)==self.padding_id, 0, grad)
+        return grad
+
+class MSE():
+    def __init__(self, y_pred, y_true):
+        self.y_pred = y_pred
+        self.y_true = y_true
+
+    def forward(self):
+        loss = ((self.y_pred - self.y_true) ** 2).mean()
+        return loss
+
+    def grad(self):
+        grad = 2 * (self.y_pred - self.y_true)
+        return grad

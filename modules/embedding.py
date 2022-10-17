@@ -1,6 +1,7 @@
-import numpy as np
+import cupy as cp
+from numpy import indices
 class Embedding():
-    def __init__(self, num_embeddings, embedding_dim, optimizer, data_type=np.float32):
+    def __init__(self, num_embeddings, embedding_dim, optimizer, data_type=cp.float32):
         self.layer_name = "embedding"
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
@@ -11,7 +12,7 @@ class Embedding():
         self.register()
 
     def init_weights(self):
-        self.weights = np.random.normal(0, 1, (self.num_embeddings, self.embedding_dim)).astype(self.data_type)
+        self.weights = cp.random.normal(0, 1, (self.num_embeddings, self.embedding_dim)).astype(self.data_type)
 
     def register(self):
         weights_registered_name = '{}_{}'.format(self.layer_name, 'weights')
@@ -19,14 +20,20 @@ class Embedding():
         self.weights_registered_name = "{}_{}".format(weights_registered_name, cnt)
         self.optimizer.register_params(self.weights_registered_name, self.weights)
 
-    def forward(self, indicies):
-        self.indicies = indicies
-        self.output = np.take(self.weights, self.indicies, axis=0)
+    def forward(self, indices):
+        self.indices = indices
+        self.output = cp.take(self.weights, self.indices, axis=0)
         return self.output
     
     def backward(self, grad_y):
-        self.grad_weights = np.sum(grad_y)
+        self.grad_weights = cp.zeros_like(self.weights)
+        self.grad_weights[self.indices] += grad_y
         return None
 
+    def release_memory(self):
+        del self.indices, self.output, self.grad_weights
+
     def update_weights(self):
-        self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)
+        self.weights = self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)
+        self.release_memory()
+        return

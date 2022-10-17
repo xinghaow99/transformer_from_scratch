@@ -1,9 +1,9 @@
-import numpy as np
+import cupy as cp
 from modules.relu import ReLU
 from modules.linear import Linear
 from modules.dropout import Dropout
 class PositionWiseFeedForward():
-    def __init__(self, optimizer, d_model, d_ff, dropout_rate=0.1, data_type=np.float32):
+    def __init__(self, optimizer, d_model, d_ff, dropout_rate=0.1, data_type=cp.float32):
         self.fc1 = Linear(d_model, d_ff, optimizer, use_bias=True, data_type=data_type)
         self.fc2 = Linear(d_ff, d_model, optimizer, use_bias=True, data_type=data_type)
         self.relu = ReLU()

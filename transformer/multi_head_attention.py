@@ -1,9 +1,9 @@
-import numpy as np
+import cupy as cp
 from modules.linear import Linear
 from modules.dropout import Dropout
 from modules.softmax import Softmax
 class MultiHeadAttention():
-    def __init__(self, optimizer, d_model=512, num_attention_heads=8, dropout_rate=0.1, data_type=np.float32):
+    def __init__(self, optimizer, d_model=512, num_attention_heads=8, dropout_rate=0.1, data_type=cp.float32):
         self.optimizer = optimizer
         self.d_model = d_model
         self.num_attention_heads = num_attention_heads
@@ -11,25 +11,35 @@ class MultiHeadAttention():
         self.d_q = d_model // self.num_attention_heads
         self.d_k = self.d_q
         self.d_v = self.d_q
-        self.scale_factor = np.sqrt(self.d_k)
-        self.W_q = Linear(in_features=self.d_model, out_features=self.d_q*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
-        self.W_k = Linear(in_features=self.d_model, out_features=self.d_k*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
-        self.W_v = Linear(in_features=self.d_model, out_features=self.d_v*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=np.float32)
-        self.W_o = Linear(in_features=self.d_model, out_features=self.d_model, optimizer=self.optimizer, use_bias=True, data_type=np.float32)
+        self.scale_factor = cp.sqrt(self.d_k)
+        self.W_q = Linear(in_features=self.d_model, out_features=self.d_q*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=cp.float32)
+        self.W_k = Linear(in_features=self.d_model, out_features=self.d_k*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=cp.float32)
+        self.W_v = Linear(in_features=self.d_model, out_features=self.d_v*self.num_attention_heads, optimizer=self.optimizer, use_bias=False, data_type=cp.float32)
+        self.W_o = Linear(in_features=self.d_model, out_features=self.d_model, optimizer=self.optimizer, use_bias=True, data_type=cp.float32)
         self.dropout = Dropout(dropout_rate)
         self.softmax = Softmax()
     
     def attention_forward(self, q, k, v, mask, training=True):
-        attention_score = q @ k.transpose(0, 1, 3, 2) / np.sqrt(self.d_k)
+        attention_score = q @ k.transpose(0, 1, 3, 2) / cp.sqrt(self.d_k)
         if mask is not None:
-            self.mask = np.asarray(mask)
-            self.mask = mask[:, np.newaxis, ...]
+            self.mask = cp.asarray(mask)
+            self.mask = mask[:, cp.newaxis, ...]
         else:
             self.mask = None
-        attention_score = np.where(self.mask == 0, float('-inf'), attention_score)
+        # print('mask shape: ', self.mask.shape)
+        # print('mask: ', self.mask[0][0])
+        attention_score = cp.where(self.mask == 0, float('-inf'), attention_score)
+        # print('attention_score shape:', attention_score[0][0].shape)
+        # print('attention_score: ', attention_score[0][0])
         softmax_output = self.softmax.forward(attention_score)
+        # print('sofxmax_output shape: ', softmax_output[0][0].shape)
+        # print('softmax_output: ', softmax_output[0][0])
+        # print('v shape: ', v[0][0].shape)
+        # print('v: ', v[0][0])
         self.dropout_output = self.dropout.forward(softmax_output, training)
         attention_output = self.dropout_output @ v
+        # print('attention_output shape: ', attention_output[0][0].shape)
+        # print('attention_output: ', attention_output[0][0])
         return attention_output
 
     def attention_backward(self, grad):
@@ -37,10 +47,12 @@ class MultiHeadAttention():
         grad = grad @ self.v.transpose(0, 1, 3, 2)
         grad = self.dropout.backward(grad)
         grad = self.softmax.backward(grad)
+        # print('softmax_grad: ', grad)
         if self.mask is not None:
-            grad = np.where(self.mask == 0, 0, grad)
-        self.grad_q = grad @ self.k / np.sqrt(self.d_k)
-        self.grad_k = (self.q.transpose(0, 1, 3, 2) @ grad / np.sqrt(self.d_k)).transpose(0, 1, 3, 2)
+            grad = cp.where(self.mask == 0, 0, grad)
+        grad /= self.d_k
+        self.grad_q = grad @ self.k
+        self.grad_k = (self.q.transpose(0, 1, 3, 2) @ grad).transpose(0, 1, 3, 2)
         return grad
 
     def forward(self, q, k, v, mask=None, training=True):
@@ -72,8 +84,12 @@ class MultiHeadAttention():
         self.grad_v = self.W_v.backward(self.grad_v)
         return self.grad_q, self.grad_k, self.grad_v
 
+    def release_memory(self):
+        del self.mask, self.q, self.k, self.v, self.grad_q, self.grad_k, self.grad_v
+
     def update_weights(self):
         self.W_o.update_weights()
         self.W_v.update_weights()
         self.W_k.update_weights()
         self.W_q.update_weights()
+        self.release_memory()

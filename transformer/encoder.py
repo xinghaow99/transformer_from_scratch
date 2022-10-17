@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as cp
 from modules.embedding import Embedding
 from modules.dropout import Dropout
 from transformer.positional_encoding import PositionalEncoding
@@ -12,7 +12,7 @@ class Encoder():
         self.encoder_layers = [EncoderBlock(d_model, d_ff, optimizer, num_attention_heads, dropout_rate, data_type) for _ in range(block_num)]
 
     def forward(self, x, mask, training):
-        x = self.embedding.forward(x) * np.sqrt(self.d_model)
+        x = self.embedding.forward(x) * cp.sqrt(self.d_model)
         x = self.positional_encoding.forward(x)
         x = self.dropout.forward(x, training)
         for encoder_layer in self.encoder_layers:
@@ -23,7 +23,7 @@ class Encoder():
         for encoder_layer in reversed(self.encoder_layers):
             grad = encoder_layer.backward(grad)
         grad = self.dropout.backward(grad)
-        grad = self.positional_encoding.backward(grad) * np.sqrt(self.d_model)
+        grad = self.positional_encoding.backward(grad) * cp.sqrt(self.d_model)
         grad = self.embedding.backward(grad)
         return grad
 
