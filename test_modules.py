@@ -110,7 +110,7 @@ class EncoderBlockTest():
 
 BATCH_SIZE = 32
 MAX_LEN = 1
-MODEL_DIM = 256
+MODEL_DIM = 128
 FF_DIM = 512
 ATTENTION_HEADS_NUM = 4
 BLOCK_NUM = 3
@@ -229,6 +229,6 @@ def plot_lr():
 
 if __name__ == "__main__":
     # test_mlp()
-    # test_encoder_block()
+    test_encoder_block()
     # test_transformer_encoder()
-    plot_lr()
+    # plot_lr()

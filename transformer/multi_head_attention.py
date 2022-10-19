@@ -50,7 +50,7 @@ class MultiHeadAttention():
         # print('softmax_grad: ', grad)
         if self.mask is not None:
             grad = cp.where(self.mask == 0, 0, grad)
-        grad /= self.d_k
+        grad /= cp.sqrt(self.d_k)
         self.grad_q = grad @ self.k
         self.grad_k = (self.q.transpose(0, 1, 3, 2) @ grad).transpose(0, 1, 3, 2)
         return grad

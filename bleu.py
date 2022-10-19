@@ -89,7 +89,7 @@ def compute_bleu(reference_corpus, translation_corpus, max_order=4,
 
   return (bleu, precisions, bp, ratio, translation_length, reference_length)
 
-# predictions = ['但核谈判的成功还有一个更深层次的原因：',' 但核谈判的成功还有一个更深层次的原因：']
-# references = [['但核谈判的成功还有一个更深层次的原因：1979年的霍梅尼'], ['但核谈判的成功还有一个更深层次的原因：']]
+# predictions = ['但核谈判的成功还有一个更深层次的原因：', '生日快乐']
+# references = [['但核谈判的成功还有一个更深层次的原因：'], ['祝你生日快乐']]
 # results = compute_bleu(references, predictions)
 # print(results)

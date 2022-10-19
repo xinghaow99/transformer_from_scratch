@@ -8,15 +8,16 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from utils import _release_memory
 from bleu import compute_bleu
+import wandb
 # Hyperparameters
 DATASET_NAME = 'news_commentary'
 LANG_PAIR = 'en-zh'
-BATCH_SIZE = 128
+BATCH_SIZE = 110
 MAX_LEN = 200
-MODEL_DIM = 128
-FF_DIM = 512
-ATTENTION_HEADS_NUM = 4
-BLOCK_NUM = 3
+MODEL_DIM = 512
+FF_DIM = 1024
+ATTENTION_HEADS_NUM = 8
+BLOCK_NUM = 2
 DROPOUT_RATE = 0.1
 DATA_TYPE = np.float32
 SEED = 12
@@ -24,9 +25,27 @@ LR = MODEL_DIM ** -0.5
 BETA1 = 0.9
 BETA2 = 0.98
 EPS = 1e-9
-WARMUP_STEPS = 2000
+WARMUP_STEPS = 4000
 BLEU_NUM_SENTENCES = 100
-NUM_EPOCH = 30
+NUM_EPOCH = 35
+
+wandb.init(
+    project="transformer_from_scratch",
+    config = {
+        'learning_rate':LR,
+        'epochs': NUM_EPOCH,
+        'warmup_steps': WARMUP_STEPS,
+        'batch_size': BATCH_SIZE,
+        'max_len': MAX_LEN,
+        'd_model': MODEL_DIM,
+        'd_ff': FF_DIM,
+        'num_attention_head': ATTENTION_HEADS_NUM,
+        'num_blocks': BLOCK_NUM,
+        'dropout_rate': DROPOUT_RATE,
+        'beta1': BETA1,
+        'beta2': BETA2,
+        'eps': EPS
+            })
 
 mempool = cp.get_default_memory_pool()
 
@@ -88,6 +107,10 @@ def train_epoch(optimizer, source_ids, target_ids, model, padding_id, criterion,
         del source, target_in, source_mask, target_mask, src_tgt_mask
         _release_memory()
         perplexity = np.exp(loss)
+        wandb.log({
+            'train_loss': loss,
+            'train_perplexity': perplexity
+        })
         progress.set_postfix({'train_loss': loss, 'train_perplexity': perplexity})
         loss_history.append(loss)
         perplexity_history.append(perplexity)
@@ -109,6 +132,10 @@ def train(optimizer, train_source_ids, train_target_ids, test_source_ids, test_t
         # eval_loss_history.extend(eval_loss_epoch)
         eval_loss_history.append(sum(eval_loss_epoch) / len(eval_loss_epoch))
         bleu_history.append(bleu_epoch)
+        wandb.log({
+            'eval_loss': sum(eval_loss_epoch) / len(eval_loss_epoch),
+            'bleu': bleu_epoch
+        })
     # print(eval_loss_epoch)
     # plot_loss(train_loss_history, 'Step', 'Loss', 'train_loss')  
     # plot_loss(eval_loss_history, 'Epoch', 'Loss', 'eval_loss')
@@ -256,6 +283,7 @@ if __name__=='__main__':
     train_source_ids, train_target_ids = dataloader.train_source_ids, dataloader.train_target_ids
     test_source_ids, test_target_ids = dataloader.test_source_ids, dataloader.test_target_ids
     optimizer = Adam(lr=LR, beta1=BETA1, beta2=BETA2, eps=EPS, warmup_steps=WARMUP_STEPS, d_model=MODEL_DIM)
+    optimizer.set_lr()
     transformer = Transformer(
         optimizer=optimizer,
         source_vocab_size=len(dataloader.source_vocab),
@@ -271,5 +299,8 @@ if __name__=='__main__':
     target_vocab_size = len(dataloader.target_vocab)
     criterion = CrossEntropy(padding_id, target_vocab_size)
     train(optimizer, train_source_ids, train_target_ids, test_source_ids, test_target_ids, dataloader.target_vocab, dataloader.raw_test_dataset, transformer, padding_id, criterion, NUM_EPOCH)
+    print('Sentences from training set')
+    sample_sentences_and_translate(transformer, train_source_ids, train_target_ids, dataloader.source_vocab, dataloader.target_vocab, dataloader.raw_train_dataset, 3, special_token_ids=range(3))
+    print('Sentences from testing  set')
     sample_sentences_and_translate(transformer, test_source_ids, test_target_ids, dataloader.source_vocab, dataloader.target_vocab, dataloader.raw_test_dataset, 3, special_token_ids=range(3))
-
+    wandb.finish()

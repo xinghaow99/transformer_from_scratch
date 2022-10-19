@@ -17,7 +17,8 @@ class Linear():
     def init_weights(self):
         sqrt_k = 1. / cp.sqrt(self.in_features)
         self.weights = cp.random.uniform(-sqrt_k, sqrt_k, (self.in_features, self.out_features)).astype(self.data_type)
-        self.bias = cp.zeros(self.out_features).astype(self.data_type) if self.use_bias else cp.random.uniform(-sqrt_k, sqrt_k, self.out_features)
+        if self.use_bias:
+            self.bias = cp.random.uniform(-sqrt_k, sqrt_k, self.out_features).astype(self.data_type)
     
     def register(self):
         weights_registered_name = '{}_{}'.format(self.layer_name, 'weights')
@@ -48,6 +49,8 @@ class Linear():
     
     def release_memory(self):
         del self.x, self.output, self.grad_weights
+        if self.use_bias:
+            del self.grad_bias
 
     def update_weights(self):
         self.weights = self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)
