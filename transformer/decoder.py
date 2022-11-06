@@ -11,14 +11,14 @@ class Decoder():
         self.d_model = d_model
         self.embedding = Embedding(vocab_size, d_model, optimizer, data_type)
         self.dropout = Dropout(dropout_rate, data_type)
-        self.positional_enconding = PositionalEncoding(max_len, d_model, data_type)
+        self.positional_encoding = PositionalEncoding(max_len, d_model, data_type)
         self.decoder_layers = [DecoderBlock(optimizer, d_model, d_ff, num_attention_heads, dropout_rate, data_type) for _ in range(block_num)]
         self.fc = Linear(d_model, vocab_size, optimizer, True, data_type)
         self.softmax = Softmax()
 
     def forward(self, target, source, target_mask, src_tgt_mask, training):
         target = self.embedding.forward(target) * cp.sqrt(self.d_model)
-        target = self.positional_enconding.forward(target)
+        target = self.positional_encoding.forward(target)
         target = self.dropout.forward(target, training)
         for decoder_layer in self.decoder_layers:
             target =  decoder_layer.forward(target, source, target_mask, src_tgt_mask, training)
@@ -34,7 +34,7 @@ class Decoder():
             grad, grad_source = decoder_layer.backward(grad)
             self.grad_source_sum += grad_source
         grad = self.dropout.backward(grad)
-        grad = self.positional_enconding.backward(grad) * cp.sqrt(self.d_model)
+        grad = self.positional_encoding.backward(grad) * cp.sqrt(self.d_model)
         grad = self.embedding.backward(grad)
         return grad
 

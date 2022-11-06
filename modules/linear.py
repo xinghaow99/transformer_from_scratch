@@ -1,3 +1,5 @@
+from tkinter import N, NS
+from tkinter.messagebox import NO
 import cupy as cp
 from utils import _release_memory
 class Linear():
@@ -9,8 +11,11 @@ class Linear():
         self.use_bias = use_bias
         self.weights = None
         self.bias= None
+        self.grad_weights = None
+        self.grad_bias = None
         self.data_type = data_type
         self.init_weights()
+        self.zero_grad()
         self.register()
 
 
@@ -19,6 +24,11 @@ class Linear():
         self.weights = cp.random.uniform(-sqrt_k, sqrt_k, (self.in_features, self.out_features)).astype(self.data_type)
         if self.use_bias:
             self.bias = cp.random.uniform(-sqrt_k, sqrt_k, self.out_features).astype(self.data_type)
+
+    def zero_grad(self):
+        self.grad_weights = cp.zeros_like(self.weights)
+        if self.use_bias:
+            self.grad_bias = cp.zeros_like(self.bias)
     
     def register(self):
         weights_registered_name = '{}_{}'.format(self.layer_name, 'weights')
@@ -41,19 +51,21 @@ class Linear():
     def backward(self, grad):
         # https://web.eecs.umich.edu/~justincj/teaching/eecs442/notes/linear-backprop.html
         # self.grad_weights = self.x.reshape(self.in_features, -1) @ grad.reshape(-1, self.out_features)
-        self.grad_weights = cp.sum(cp.matmul(self.x.transpose(0, 2, 1), grad), axis=0)
+        self.grad_weights += cp.sum(cp.matmul(self.x.transpose(0, 2, 1), grad), axis=0)
         if self.use_bias:
-            self.grad_bias = cp.sum(grad, axis=tuple(range(grad.ndim - 1)))
+            self.grad_bias += cp.sum(grad, axis=tuple(range(grad.ndim - 1)))
         self.grad = grad @ self.weights.T
         return self.grad
     
     def release_memory(self):
-        del self.x, self.output, self.grad_weights
-        if self.use_bias:
-            del self.grad_bias
+        del self.x, self.output
+        # del self.x, self.output, self.grad_weights
+        # if self.use_bias:
+        #     del self.grad_bias
 
     def update_weights(self):
         self.weights = self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)
         if self.use_bias:
             self.bias = self.optimizer.update(self.bias, self.grad_bias, self.bias_registered_name)
         self.release_memory()
+        self.zero_grad()

@@ -12,12 +12,12 @@ import wandb
 # Hyperparameters
 DATASET_NAME = 'news_commentary'
 LANG_PAIR = 'en-zh'
-BATCH_SIZE = 110
+BATCH_SIZE = 32
 MAX_LEN = 200
 MODEL_DIM = 512
-FF_DIM = 1024
+FF_DIM = 2048
 ATTENTION_HEADS_NUM = 8
-BLOCK_NUM = 2
+BLOCK_NUM = 6
 DROPOUT_RATE = 0.1
 DATA_TYPE = np.float32
 SEED = 12
@@ -25,16 +25,18 @@ LR = MODEL_DIM ** -0.5
 BETA1 = 0.9
 BETA2 = 0.98
 EPS = 1e-9
-WARMUP_STEPS = 4000
+WARMUP_STEPS = 6000
 BLEU_NUM_SENTENCES = 100
-NUM_EPOCH = 35
+NUM_EPOCH = 60
+GRADIENT_ACCUMULATION_STEPS = 10
 
 wandb.init(
     project="transformer_from_scratch",
     config = {
-        'learning_rate':LR,
+        'learning_rate': LR,
         'epochs': NUM_EPOCH,
         'warmup_steps': WARMUP_STEPS,
+        'accumulation_steps': GRADIENT_ACCUMULATION_STEPS,
         'batch_size': BATCH_SIZE,
         'max_len': MAX_LEN,
         'd_model': MODEL_DIM,
@@ -117,18 +119,19 @@ def train_epoch(optimizer, source_ids, target_ids, model, padding_id, criterion,
         grad = criterion.grad(output, target[:, 1:].flatten()).reshape(output_shape)
         model.backward(grad)
         _release_memory()
-        model.update_weights()
+        if batch_id % GRADIENT_ACCUMULATION_STEPS == 0:
+            model.update_weights()
         optimizer._step()
     _release_memory()
     return loss_history
 
-def train(optimizer, train_source_ids, train_target_ids, test_source_ids, test_target_ids, target_vocab, raw_test_set, model, padding_id, criterion, epochs):
+def train(optimizer, train_source_ids, train_target_ids, test_source_ids, test_target_ids, source_vocab, target_vocab, raw_test_set, model, padding_id, criterion, epochs):
     train_loss_history = []
     eval_loss_history = []
     bleu_history = []
     for epoch in range(epochs):
         train_loss_history.extend(train_epoch(optimizer, train_source_ids, train_target_ids, model, padding_id, criterion, epoch))
-        eval_loss_epoch, bleu_epoch = eval_epoch(test_source_ids, test_target_ids, target_vocab, raw_test_set, model, padding_id, criterion, epoch)
+        eval_loss_epoch, bleu_epoch = eval_epoch(test_source_ids, test_target_ids, source_vocab, target_vocab, raw_test_set, model, padding_id, criterion, epoch)
         # eval_loss_history.extend(eval_loss_epoch)
         eval_loss_history.append(sum(eval_loss_epoch) / len(eval_loss_epoch))
         bleu_history.append(bleu_epoch)
@@ -196,7 +199,7 @@ def predict(model: Transformer, source_ids, reversed_target_vocab, padding_id, b
     return sentence
         
 
-def eval_epoch(source_ids, target_ids, target_vocab, raw_test_set, model, padding_id, criterion, epoch):
+def eval_epoch(source_ids, target_ids, source_vocab, target_vocab, raw_test_set, model, padding_id, criterion, epoch):
     print('Evaluating Epoch', epoch)
     loss_history = []
     perplexity_history = []
@@ -220,6 +223,7 @@ def eval_epoch(source_ids, target_ids, target_vocab, raw_test_set, model, paddin
         perplexity_history.append(perplexity)
     bleu_score = compute_test_set_bleu(source_ids, target_vocab, raw_test_set, model, BLEU_NUM_SENTENCES)[0]
     print('Epoch {} Bleu Score: '.format(epoch), bleu_score)
+    sample_sentences_and_translate(model, source_ids, target_ids, source_vocab, target_vocab, raw_test_set, 8, special_token_ids=range(3))
     return loss_history, bleu_score
     
 
@@ -278,7 +282,7 @@ def sample_sentences_and_translate(model, test_source_ids, test_target_ids, sour
 if __name__=='__main__':
     set_seed(SEED)
     # limit_memory_pool(1*1024**3) # 1GB
-    dataloader = Dataloader(DATASET_NAME, LANG_PAIR, BATCH_SIZE, MAX_LEN)
+    dataloader = Dataloader(DATASET_NAME, LANG_PAIR, BATCH_SIZE, MAX_LEN, SEED)
     padding_id = dataloader.base_vocab[dataloader.PAD_TOKEN]
     train_source_ids, train_target_ids = dataloader.train_source_ids, dataloader.train_target_ids
     test_source_ids, test_target_ids = dataloader.test_source_ids, dataloader.test_target_ids
@@ -298,7 +302,7 @@ if __name__=='__main__':
     )
     target_vocab_size = len(dataloader.target_vocab)
     criterion = CrossEntropy(padding_id, target_vocab_size)
-    train(optimizer, train_source_ids, train_target_ids, test_source_ids, test_target_ids, dataloader.target_vocab, dataloader.raw_test_dataset, transformer, padding_id, criterion, NUM_EPOCH)
+    train(optimizer, train_source_ids, train_target_ids, test_source_ids, test_target_ids, dataloader.source_vocab, dataloader.target_vocab, dataloader.raw_test_dataset, transformer, padding_id, criterion, NUM_EPOCH)
     print('Sentences from training set')
     sample_sentences_and_translate(transformer, train_source_ids, train_target_ids, dataloader.source_vocab, dataloader.target_vocab, dataloader.raw_train_dataset, 3, special_token_ids=range(3))
     print('Sentences from testing  set')

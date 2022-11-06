@@ -4,14 +4,14 @@ import re
 import copy
 import matplotlib.pyplot as plt
 class Dataloader():
-    def __init__(self, dataset_name='news_commentary', lang_pair='en-zh', batch_size=32, max_len=256):
+    def __init__(self, dataset_name='news_commentary', lang_pair='en-zh', batch_size=32, max_len=256, seed=42):
         self.dataset_name = dataset_name
         self.lang_pair = lang_pair
         self.batch_size = batch_size
         self.source_lang, self.target_lang = self.lang_pair.split('-')
         if self.dataset_name != 'news_commentary':
             raise NotImplementedError
-        self.dataset = load_dataset(self.dataset_name, self.lang_pair, cache_dir='data')['train'].train_test_split(test_size=0.2)
+        self.dataset = load_dataset(self.dataset_name, self.lang_pair, cache_dir='data')['train'].train_test_split(test_size=0.2, seed=seed)
         self.raw_train_dataset = self.dataset['train']['translation']
         self.raw_test_dataset = self.dataset['test']['translation']
         self.PAD_TOKEN = '<pad>'

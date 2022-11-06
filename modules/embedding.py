@@ -8,11 +8,16 @@ class Embedding():
         self.optimizer = optimizer
         self.data_type = data_type
         self.weights = None
+        self.grad_weights = None
         self.init_weights()
+        self.zero_grad()
         self.register()
 
     def init_weights(self):
-        self.weights = cp.random.normal(0, 1, (self.num_embeddings, self.embedding_dim)).astype(self.data_type)
+        self.weights = cp.random.normal(0, self.num_embeddings ** -0.5, (self.num_embeddings, self.embedding_dim)).astype(self.data_type)
+
+    def zero_grad(self):
+        self.grad_weights = cp.zeros_like(self.weights)
 
     def register(self):
         weights_registered_name = '{}_{}'.format(self.layer_name, 'weights')
@@ -26,14 +31,14 @@ class Embedding():
         return self.output
     
     def backward(self, grad_y):
-        self.grad_weights = cp.zeros_like(self.weights)
         self.grad_weights[self.indices] += grad_y
         return None
 
     def release_memory(self):
-        del self.indices, self.output, self.grad_weights
+        del self.indices, self.output
 
     def update_weights(self):
         self.weights = self.optimizer.update(self.weights, self.grad_weights, self.weights_registered_name)
         self.release_memory()
+        self.zero_grad()
         return

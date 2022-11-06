@@ -10,12 +10,19 @@ class LayerNormalization():
         self.data_type = data_type
         self.gamma = None
         self.beta = None
+        self.grad_gamma = None
+        self.grad_beta = None
         self.init_weights()
+        self.zero_grad()
         self.register()
 
     def init_weights(self):
         self.gamma = cp.ones(self.normalized_shape).astype(self.data_type)
         self.beta = cp.zeros(self.normalized_shape).astype(self.data_type)
+
+    def zero_grad(self):
+        self.grad_gamma = cp.zeros_like(self.gamma)
+        self.grad_beta = cp.zeros_like(self.beta)
 
     def register(self):
         self.layer_id = self.optimizer.count_layers(self.layer_name) // 2
@@ -37,8 +44,8 @@ class LayerNormalization():
         x_var = x.var(axis=-1, keepdims=True)
         lnorm = (x - x_mean) / cp.sqrt(x_var + self.eps)
         batch_size, seq_len, d = x.shape
-        self.grad_gamma = grad.sum(axis=tuple(range(grad.ndim - 1)))
-        self.grad_beta = cp.sum(grad * lnorm, axis=tuple(range(grad.ndim - 1)))
+        self.grad_gamma += grad.sum(axis=tuple(range(grad.ndim - 1)))
+        self.grad_beta += cp.sum(grad * lnorm, axis=tuple(range(grad.ndim - 1)))
         grad_lnorm = grad * self.gamma
         grad_x = (
             d * grad_lnorm
@@ -53,4 +60,5 @@ class LayerNormalization():
     def update_weights(self):
         self.gamma = self.optimizer.update(self.gamma, self.grad_gamma, "{}.gamma".format(self.register_name))
         self.beta = self.optimizer.update(self.beta, self.grad_beta, "{}.beta".format(self.register_name))
-        self.release_memory()
+        # self.release_memory()
+        self.zero_grad()
